@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Sweet Draws My Dude</title>
+    <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="text/babel" >
+        "use strict";
+        let canvas, ctx, sendBufferCanvas, sendBufferCtx, socket, dragging = false, serverCanvas, serverCtx, frames = {}, i = 0;
+        
+        const randomColor = () => {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+                if (color === '#FF0000') {
+                    color = '#';
+                    i = 0;
+                }
+            }         
+            return color;
+        };
+
+        const resetCanvas = (cvs) => {
+            cvs.lineWidth = 5;
+            cvs.strokeStyle = "black";
+            cvs.lineCap = "round";
+            cvs.lineJoin = "round";
+        };
+
+        const setup = () => {
+            sendBufferCanvas = document.createElement("canvas");
+            sendBufferCanvas.height = canvas.height;
+            sendBufferCanvas.width = canvas.width;
+            sendBufferCtx = sendBufferCanvas.getContext("2d");    
+            
+            resetCanvas(sendBufferCtx);
+            sendBufferCtx.strokeStyle = "rgba(128, 128, 128, 0.25)";
+        };
+
+
+        // EVENT CALLBACK FUNCTIONS
+        const doMousedown = (e) => {
+            dragging = true;
+
+            ctx.beginPath();
+            ctx.moveTo(e.pageX, e.pageY);
+            sendBufferCtx.beginPath();
+            sendBufferCtx.moveTo(e.pageX, e.pageY);            
+        };
+
+        const doMousemove = (e) =>{
+            if (!dragging) return;
+        
+            ctx.lineTo(e.pageX, e.pageY);
+            ctx.stroke();
+            sendBufferCtx.lineTo(e.pageX, e.pageY);
+            sendBufferCtx.stroke();
+        };
+
+        const doMouseup = (e) => {
+            dragging = false;
+            ctx.closePath();
+            sendBufferCtx.closePath();
+        };
+
+        // if the user drags out of the canvas
+        const doMouseout = (e) => {
+            dragging = false;
+            ctx.closePath();
+            sendBufferCtx.closePath();
+        };
+
+        const updateScreen = (data, cvs) => {
+            let image = new Image();
+            
+            image.onload = () => {
+                cvs.save();
+                cvs.globalCompositeOperation = "source-over";
+                cvs.drawImage(image, data.x, data.y, data.width, data.height);
+                cvs.restore();
+            };
+            
+            image.src = data.imgData;
+        };
+        
+
+        const init = () => {
+            canvas = document.querySelector("#canvas");
+            ctx = canvas.getContext('2d');
+            serverCanvas = document.querySelector("#serverCanvas");
+            serverCtx = serverCanvas.getContext('2d');
+
+            resetCanvas(ctx);
+            resetCanvas(serverCtx);
+            
+            canvas.onmousedown = doMousedown;
+            canvas.onmousemove = doMousemove;
+            canvas.onmouseup = doMouseup;
+            canvas.onmouseout = doMouseout;
+            
+            socket = io.connect();
+            
+            socket.on('connect', () => {
+                socket.emit('join', {});
+                setup();
+            });
+            
+            socket.on('displayGif', (data)=> {
+                let keys = Object.keys(data);
+                let k = 0;
+                
+                const displayLoop = () => {
+                    serverCtx.clearRect(0, 0, canvas.width, canvas.height);  
+                    const frame = data[keys[k]];
+                    updateScreen(frame, serverCtx);
+                    k++;
+                    if (k > keys.length) {
+                        k = 0;
+                    }
+                };
+                
+                setInterval(displayLoop, 100);
+                
+            });
+            
+            document.querySelector("#clearButton").onclick = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);  
+                    sendBufferCtx.clearRect(0, 0, canvas.width, canvas.height);
+            };
+            
+            document.querySelector("#send").onclick = () => {
+                const data = {
+                    x: 0,
+                    y: 0,
+                    height: 480,
+                    width: 640,
+                    imgData : sendBufferCanvas.toDataURL(),
+                };
+                frames[i] = data;
+                i++;
+                if (i > 20) {
+                    sendBufferCtx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);  
+                    socket.emit('drawGif', frames);
+                    frames = {};
+                }
+                else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);  
+                    sendBufferCtx.clearRect(0, 0, canvas.width, canvas.height);
+                    updateScreen(data, ctx);
+                    document.querySelector("#frameCount").innerHTML = i;
+                }
+            };
+        };
+        window.onload = init;
+    </script>
+    <style>
+        canvas {
+             background: #ffffff;
+             box-shadow: 4px 4px 8px rgba(0,0,0,0.5);
+          }
+            a {
+            width: 300px;
+            height: 100px;
+            background: rgb(155, 52, 78);
+            padding: 15px;
+            font-size: 32px;
+            text-decoration: none;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" height="480" width="640"></canvas>
+    <canvas id="serverCanvas" height="480" width= "640"></canvas>
+    <input id="clearButton" type="button" value="Clear">
+    <input id="send" type="button" value="next">
+    <p>Frame <span id="frameCount">0</span>/20</p>
+</body>
+</html>

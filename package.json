@@ -1,0 +1,29 @@
+{
+  "name": "realtimeproject1",
+  "version": "1.0.0",
+  "description": "First project for 590",
+  "main": "./src/server.js",
+  "scripts": {
+    "start": "node ./src/server.js",
+    "pretest": "eslint ./src --fix",
+    "test": "echo \\\"Tests complete\\\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RyanSpencer/RealTimeProject1.git"
+  },
+  "author": "Ryan Spencer",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RyanSpencer/RealTimeProject1/issues"
+  },
+  "homepage": "https://github.com/RyanSpencer/RealTimeProject1#readme",
+  "dependencies": {
+    "socket.io": "^1.7.2"
+  },
+  "devDependencies": {
+    "eslint": "^3.15.0",
+    "eslint-config-airbnb": "^14.1.0",
+    "eslint-plugin-import": "^2.2.0"
+  }
+}
