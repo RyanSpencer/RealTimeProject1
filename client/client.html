@@ -6,8 +6,15 @@
     <script src="/socket.io/socket.io.js"></script>
     <script type="text/babel" >
         "use strict";
-        let canvas, ctx, sendBufferCanvas, sendBufferCtx, socket, dragging = false, serverCanvas, serverCtx, frames = {}, i = 0;
-        
+        let canvas, ctx, //Main drawing canvas
+            sendBufferCanvas, sendBufferCtx, //Canavs used to send information to the server
+            serverCanvas, serverCtx; //Canvas used to draw information from the server
+        let socket, dragging = false,  //Socket variable and dragging value for drawing
+            frames = {}, i = 1, animationId; // Frames object of all frames of animation, i is what instance of frames we are making next, 
+                                             // animation id is the value of setinterval so we can cancel it later
+
+        // Taken from stackoverflow
+        // http://stackoverflow.com/questions/1484506/random-color-generator-in-javascript
         const randomColor = () => {
             const letters = '0123456789ABCDEF';
             let color = '#';
@@ -21,6 +28,7 @@
             return color;
         };
 
+        //Resets the canvas by passing in the 2d reference to the canvas.
         const resetCanvas = (cvs) => {
             cvs.lineWidth = 5;
             cvs.strokeStyle = "black";
@@ -29,6 +37,7 @@
         };
 
         const setup = () => {
+            //Setup the buffer canvas
             sendBufferCanvas = document.createElement("canvas");
             sendBufferCanvas.height = canvas.height;
             sendBufferCanvas.width = canvas.width;
@@ -39,16 +48,17 @@
         };
 
 
-        // EVENT CALLBACK FUNCTIONS
+     // EVENT CALLBACK FUNCTIONS
+        // on down start a line
         const doMousedown = (e) => {
             dragging = true;
-
+            
             ctx.beginPath();
             ctx.moveTo(e.pageX, e.pageY);
             sendBufferCtx.beginPath();
             sendBufferCtx.moveTo(e.pageX, e.pageY);            
         };
-
+        //on move start making lines and stroking
         const doMousemove = (e) =>{
             if (!dragging) return;
         
@@ -57,7 +67,7 @@
             sendBufferCtx.lineTo(e.pageX, e.pageY);
             sendBufferCtx.stroke();
         };
-
+        //On mouse up end the current line being drawn
         const doMouseup = (e) => {
             dragging = false;
             ctx.closePath();
@@ -70,13 +80,13 @@
             ctx.closePath();
             sendBufferCtx.closePath();
         };
-
+        
+        //Update the canvas passed in with whatever data is pushed in
         const updateScreen = (data, cvs) => {
             let image = new Image();
             
             image.onload = () => {
                 cvs.save();
-                cvs.globalCompositeOperation = "source-over";
                 cvs.drawImage(image, data.x, data.y, data.width, data.height);
                 cvs.restore();
             };
@@ -86,6 +96,7 @@
         
 
         const init = () => {
+            //Establish pointers to the main and server canvas
             canvas = document.querySelector("#canvas");
             ctx = canvas.getContext('2d');
             serverCanvas = document.querySelector("#serverCanvas");
@@ -94,6 +105,7 @@
             resetCanvas(ctx);
             resetCanvas(serverCtx);
             
+            //Establish mouse pointers for main canvas
             canvas.onmousedown = doMousedown;
             canvas.onmousemove = doMousemove;
             canvas.onmouseup = doMouseup;
@@ -106,30 +118,38 @@
                 setup();
             });
             
-            socket.on('displayGif', (data)=> {
-                let keys = Object.keys(data);
-                let k = 0;
+            socket.on('displayGif', (data) => {
+                let k = 1; //K is our animaton loop variable
+                //If there is a current animation running, end it
+                clearInterval(animationId); 
                 
                 const displayLoop = () => {
-                    serverCtx.clearRect(0, 0, canvas.width, canvas.height);  
-                    const frame = data[keys[k]];
+                    //Clear the screen
+                    serverCtx.clearRect(0, 0, canvas.width, canvas.height);
+                    //Grab the current frame to be drawn
+                    const frame = data[k];
+                    //Update the server canvas with the current frame
                     updateScreen(frame, serverCtx);
+                    //Tick up k so it will draw the next frame next loop
                     k++;
-                    if (k > keys.length) {
-                        k = 0;
+                    //If k has reached the end of the animation reset it
+                    if (k >= keys.length) {
+                        k = 1;
                     }
                 };
                 
-                setInterval(displayLoop, 100);
+                //display a frame once every 100ms, resulting in a 2 second animation at 10 fps, decent for viewing simple gifs.
+                animationId = setInterval(displayLoop, 100);
                 
             });
             
             document.querySelector("#clearButton").onclick = () => {
+                    //Clears the screen for the player to start over if they messed up
                     ctx.clearRect(0, 0, canvas.width, canvas.height);  
-                    sendBufferCtx.clearRect(0, 0, canvas.width, canvas.height);
             };
             
             document.querySelector("#send").onclick = () => {
+                //Create the data packet to store in the frames array
                 const data = {
                     x: 0,
                     y: 0,
@@ -137,18 +157,29 @@
                     width: 640,
                     imgData : sendBufferCanvas.toDataURL(),
                 };
+                //Store it and increase the size
                 frames[i] = data;
                 i++;
+                //If we have all 20 frames send out the information
                 if (i > 20) {
+                    //Clear the canvases
                     sendBufferCtx.clearRect(0, 0, canvas.width, canvas.height);
                     ctx.clearRect(0, 0, canvas.width, canvas.height);  
+                    //Send out the gif to be drawn
                     socket.emit('drawGif', frames);
+                    //Reset frames and size
                     frames = {};
+                    i = 0;
+                    //Reset the screen count
+                    document.querySelector("#frameCount").innerHTML = 1;
                 }
                 else {
+                    //Clear the canvases
                     ctx.clearRect(0, 0, canvas.width, canvas.height);  
                     sendBufferCtx.clearRect(0, 0, canvas.width, canvas.height);
+                    //we use the buffer canvas to display the previous frame for helping cohesivie animation
                     updateScreen(data, ctx);
+                    //update the frame count on screen
                     document.querySelector("#frameCount").innerHTML = i;
                 }
             };
