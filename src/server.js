@@ -30,6 +30,7 @@ const onJoin = (sock) => {
     else players.four++;
       
     socket.join(data.room);
+    socket.room = data.room;
   });
 };
 
@@ -42,10 +43,23 @@ const onDraw = (sock) => {
   });
 };
 
+const onDisconnect = (sock) => {
+  const socket = sock;
+
+  socket.on('disconnect', (data) => {
+    socket.leave(socket.room);
+    if (socket.room === 'room1') players.one--;
+    else if (socket.room === 'room2') players.two--;
+    else if (socket.room === 'room3') players.three--;
+    else players.four--;
+  });
+};
+
 io.sockets.on('connection', (socket) => {
   console.log('started');
   socket.emit('players', players);
   onJoin(socket);
   onDraw(socket);
+  onDisconnect(socket);
 });
 console.log('Websocket server started');
