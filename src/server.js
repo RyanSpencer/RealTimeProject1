@@ -46,7 +46,7 @@ const onDraw = (sock) => {
 const onDisconnect = (sock) => {
   const socket = sock;
 
-  socket.on('disconnect', (data) => {
+  socket.on('disconnect', () => {
     socket.leave(socket.room);
     if (socket.room === 'room1') players.one--;
     else if (socket.room === 'room2') players.two--;
