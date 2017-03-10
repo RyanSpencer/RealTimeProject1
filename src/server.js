@@ -24,12 +24,12 @@ const onJoin = (sock) => {
   const socket = sock;
 
   socket.on('join', (data) => {
-    console.log(data);
     if (data.room === 'room1') players.one++;
     else if (data.room === 'room2') players.two++;
     else if (data.room === 'room3') players.three++;
     else players.four++;
-    socket.join(data);
+      
+    socket.join(data.room);
   });
 };
 
@@ -37,7 +37,8 @@ const onDraw = (sock) => {
   const socket = sock;
 
   socket.on('drawGif', (data) => {
-    io.sockets.in(data[0].room).emit('displayGif', data);
+    
+    io.sockets.in(data[1].room).emit('displayGif', data);
   });
 };
 

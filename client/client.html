@@ -142,6 +142,7 @@
             });
             
             socket.on('displayGif', (data) => {
+                console.log(data);
                 let k = 1; //K is our animaton loop variable
                 //If there is a current animation running, end it
                 clearInterval(animationId); 
