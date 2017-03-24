@@ -93,18 +93,18 @@
         const doMousedown = (e) => {
             dragging = true;
             
-            ctx.beginPath();
-            ctx.moveTo(e.pageX - e.target.offsetLeft, e.pageY - e.target.offsetTop);
+             ctx.beginPath();
+            ctx.moveTo(e.pageX - 14 *(e.target.offsetLeft), e.pageY - e.target.offsetTop);
             sendBufferCtx.beginPath();
-            sendBufferCtx.moveTo(e.pageX - e.target.offsetLeft, e.pageY - e.target.offsetTop);            
+            sendBufferCtx.moveTo(e.pageX - 14 *(e.target.offsetLeft), e.pageY - e.target.offsetTop);            
         };
         //on move start making lines and stroking
         const doMousemove = (e) =>{
             if (!dragging) return;
         
-            ctx.lineTo(e.pageX - e.target.offsetLeft, e.pageY - e.target.offsetTop);
+            ctx.lineTo(e.pageX - 14 * (e.target.offsetLeft), e.pageY - e.target.offsetTop);
             ctx.stroke();
-            sendBufferCtx.lineTo(e.pageX - e.target.offsetLeft, e.pageY - e.target.offsetTop);
+            sendBufferCtx.lineTo(e.pageX - 14*(e.target.offsetLeft), e.pageY - e.target.offsetTop);
             sendBufferCtx.stroke();
         };
         //On mouse up end the current line being drawn
@@ -548,11 +548,34 @@
         window.onload = init;
     </script>
     <style>
+        #player1, #player2, #player3, #player4, #player5, #player6, #player7, #player8 {
+            font-size: 30pt;
+        }
+        #username {
+            padding-top: 20px;
+            margin-top: 20px;
+            font-size: 30pt;
+        }
+        body {
+            background: rgb(102, 153, 153);
+            margin: auto;
+            width: 60%;
+            font-size: 18pt;
+        }
+        #roomPage, #mainPage, #waitPage {
+            background: white;
+            box-shadow: 5px 5px 5px rgb(0, 0, 85);
+            margin: 10px auto;
+            padding: 30px;
+            position: relative;
+        }
         canvas {
+             margin: 10px;
+             margin-left: 0px;
              background: #ffffff;
              box-shadow: 4px 4px 8px rgba(0,0,0,0.5);
           }
-            a {
+        a {
             width: 300px;
             height: 100px;
             background: rgb(155, 52, 78);
@@ -560,7 +583,7 @@
             font-size: 32px;
             text-decoration: none;
             color: white;
-            }
+        }
         #startGame {
             background:  rgba(155, 52, 78 , 0.5);
         }
@@ -577,11 +600,11 @@
         <p>Points: <span id="points"></span></p>
         <canvas id="canvas" height="480" width="640"></canvas>
         <canvas id="serverCanvas" height="480" width= "640"></canvas>
-        <input id="clearButton" type="button" value="Clear">
-        <input id="send" type="button" value="next">
         <p id="frameTotal">Frame <span id="frameCount">1</span>/20</p>
         <input id="guess" type="text">
         <input id="sendGuess" type="button" value="Send Guess">
+        <input id="clearButton" type="button" value="Clear">
+        <input id="send" type="button" value="next">
     </div>
     <div id="roomPage">
         <a id="Room1Button" href="#">Room 1 <span id="Room1">0</span>/8</a>
