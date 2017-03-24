@@ -452,7 +452,16 @@
                     clearInterval(id);
                     document.querySelector("#waitPage").style.display = "none";
                     document.querySelector("#roomPage").style.display = "block";
-                    init();
+                    window.location.reload();
+                    document.querySelector("#player1").innerHTML = "";
+                    document.querySelector("#player2").innerHTML = "";
+                    document.querySelector("#player3").innerHTML = "";
+                    document.querySelector("#player4").innerHTML = "";
+                    document.querySelector("#player5").innerHTML = "";
+                    document.querySelector("#player6").innerHTML = "";
+                    document.querySelector("#player7").innerHTML = "";
+                    document.querySelector("#player8").innerHTML = "";
+                    document.querySelector("#startGame").style.display = "";
                 }, 10000);
             });
             

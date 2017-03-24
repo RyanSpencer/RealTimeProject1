@@ -169,21 +169,24 @@ const onUpdate = (sock) => {
 
 const onDisconnect = (sock) => {
   const socket = sock;
-    
+
   socket.on('endGame', () => {
-       if (socket.room === 'room1') players.oneStarted = false;
+    if (socket.room === 'room1') players.oneStarted = false;
     else if (socket.room === 'room2') players.twoStarted = false;
     else if (socket.room === 'room3') players.threeStarted = false;
     else players.fourStarted = false;
   });
-    
+
   socket.on('disconnect', () => {
+    console.log('left');
     socket.leave(socket.room);
-    delete users[socket.room][socket.name];
-    if (socket.room === 'room1') players.one--;
-    else if (socket.room === 'room2') players.two--;
-    else if (socket.room === 'room3') players.three--;
-    else players.four--;
+    if (users[socket.room]) {
+        delete users[socket.room][socket.name];
+        if (socket.room === 'room1') players.one--;
+        else if (socket.room === 'room2') players.two--;
+        else if (socket.room === 'room3') players.three--;
+        else players.four--;
+    }
   });
 };
 
