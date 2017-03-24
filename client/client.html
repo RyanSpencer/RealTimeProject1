@@ -379,7 +379,7 @@
                 }
             });
             socket.on('finalScreen', (data) => {
-                document.querySelector("#startGame").style.display = "none";
+                document.querySelector("#mainPage").style.display = "none";
                 document.querySelector("#waitPage").style.display = "block";
                 const keys = Object.keys(data);
                 switch (keys.length) {
@@ -437,14 +437,23 @@
                          document.querySelector("#player1").innerHTML = "Error no players returned";
                  }
                 
-                const id = setInterval(10000, ()=> {
+                document.querySelector("#player1").onclick = "";
+                document.querySelector("#player2").onclick = "";
+                document.querySelector("#player3").onclick = "";
+                document.querySelector("#player4").onclick = "";
+                document.querySelector("#player5").onclick = "";
+                document.querySelector("#player6").onclick = "";
+                document.querySelector("#player7").onclick = "";
+                document.querySelector("#player8").onclick = "";
+                
+                const id = setInterval(()=> {
                     socket.emit('endGame');
-                    socket.disconnect();
+                    socket.disconnect():
                     clearInterval(id);
-                    document.querySelector("#mainPage").style.display = "none";
                     document.querySelector("#waitPage").style.display = "none";
-                    document.querySelector("#roomPAge").style.display = "block";
-                });
+                    document.querySelector("#roomPage").style.display = "block";
+                    init();
+                }, 10000);
             });
             
             document.querySelector("#clearButton").onclick = () => {

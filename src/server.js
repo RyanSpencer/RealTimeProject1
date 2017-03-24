@@ -160,7 +160,7 @@ const onUpdate = (sock) => {
         io.sockets.in(socket.room).emit('displayGif', readyUsers[socket.room]);
         delete readyUsers[socket.room][Object.keys(readyUsers[socket.room])[0]];
       } else {
-        socket.emit('finalScreen', users[socket.room]);
+        io.sockets.in(socket.room).emit('finalScreen', users[socket.room]);
       }
       doneGuesses = 0;
     }
