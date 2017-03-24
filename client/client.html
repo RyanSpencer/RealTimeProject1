@@ -10,7 +10,7 @@
             sendBufferCanvas, sendBufferCtx, //Canavs used to send information to the server
             serverCanvas, serverCtx; //Canvas used to draw information from the server
         let socket, dragging = false,  //Socket variable and dragging value for drawing
-            frames = {}, i = 1, animationId, roomSpace; // Frames object of all frames of animation, i is what instance of frames we are making next, 
+            frames = {}, i = 1, animationId, roomSpace, playerName, points; // Frames object of all frames of animation, i is what instance of frames we are making next, 
                                              // animation id is the value of setinterval so we can cancel it later
 
         // Taken from stackoverflow
@@ -37,8 +37,12 @@
         };
     
         const joinRoom = (e, room) => {
-            socket.emit('join', {room});
-            document.querySelector("#mainPage").style.display = "block";
+            const data = {
+                room : room,
+                name: document.querySelector("#username").value,
+            }
+            socket.emit('join', data);
+            document.querySelector("#waitPage").style.display = "block";
             document.querySelector("#roomPage").style.display = "none";
             roomSpace = room;
         };
@@ -87,17 +91,17 @@
             dragging = true;
             
             ctx.beginPath();
-            ctx.moveTo(e.pageX, e.pageY);
+            ctx.moveTo(e.pageX - e.target.offsetLeft, e.pageY - e.target.offsetTop);
             sendBufferCtx.beginPath();
-            sendBufferCtx.moveTo(e.pageX, e.pageY);            
+            sendBufferCtx.moveTo(e.pageX - e.target.offsetLeft, e.pageY - e.target.offsetTop);            
         };
         //on move start making lines and stroking
         const doMousemove = (e) =>{
             if (!dragging) return;
         
-            ctx.lineTo(e.pageX, e.pageY);
+            ctx.lineTo(e.pageX - e.target.offsetLeft, e.pageY - e.target.offsetTop);
             ctx.stroke();
-            sendBufferCtx.lineTo(e.pageX, e.pageY);
+            sendBufferCtx.lineTo(e.pageX - e.target.offsetLeft, e.pageY - e.target.offsetTop);
             sendBufferCtx.stroke();
         };
         //On mouse up end the current line being drawn
@@ -127,6 +131,31 @@
             image.src = data.imgData;
         };
         
+        const sendScores = (data, i, guessInfo) => {
+            document.querySelector("#waitPage").style.display = "none";
+            socket.off("displayGuess");
+            if (i < 0) {
+                const pointData = {
+                    name: playerName, points: 100, drawler: guessInfo.name,
+                };
+                socket.emit('doneGuessing', pointData);
+                return;
+            }
+            const keys = Object.keys(data);
+            if (data[keys[i]].guess === guessInfo.word) {
+                const pointData = {
+                    name: playerName, points: 100, drawler: guessInfo.name,
+                };
+                
+                socket.emit('doneGuessing', pointData);
+            }
+            else {
+                const pointData = {
+                    name: playerName, points: 40, drawler: data[keys[i]].name,
+                } 
+                socket.emit('doneGuessing', pointData);
+            }            
+        };
 
         const init = () => {
             socket = io.connect();
@@ -137,12 +166,26 @@
                     document.querySelector("#Room2").innerHTML = data.two; 
                     document.querySelector("#Room3").innerHTML = data.three;  
                     document.querySelector("#Room4").innerHTML = data.four; 
+                    if (data.one >= 8 || data.oneStarted) {
+                       document.querySelector("#Room1Button").onclick = null;            
+                    }
+                    if (data.two >= 8 || data.twoStarted) {
+                        document.querySelector("#Room2Button").onclick = null;
+                    }
+                    if (data.three >= 8 || data.threeStarted) {
+                        document.querySelector("#Room3Button").onclick = null;
+                    }
+                    if (data.four >= 8 || data.fourStarted) {
+                        document.querySelector("#Room4Button").onclick = null;
+                    }
                 });
                 setup();
             });
             
             socket.on('displayGif', (data) => {
                 console.log(data);
+                const keys = Object.keys(data)
+                const frameSet = data[keys[0]];
                 let k = 1; //K is our animaton loop variable
                 //If there is a current animation running, end it
                 clearInterval(animationId); 
@@ -151,7 +194,7 @@
                     //Clear the screen
                     serverCtx.clearRect(0, 0, canvas.width, canvas.height);
                     //Grab the current frame to be drawn
-                    const frame = data[k];
+                    const frame = frameSet.gif[k];
                     //Update the server canvas with the current frame
                     updateScreen(frame, serverCtx);
                     //Tick up k so it will draw the next frame next loop
@@ -164,7 +207,244 @@
                 
                 //display a frame once every 100ms, resulting in a 2 second animation at 10 fps, decent for viewing simple gifs.
                 animationId = setInterval(displayLoop, 100);
+                if (frameSet.name === playerName) {
+                    document.querySelector("#status").innerHTML = "This is your gif, just sit back and relax";
+                    socket.emit('enterGuess', frameSet.word);
+                }
+                else {
+                    console.log(frameSet);
+                    document.querySelector("#guess").style.display = "block";
+                    document.querySelector("#sendGuess").style.display ="block";
+                    document.querySelector("#status").innerHTML = "Give your best guess as to what this is below";
+                    
+                    document.querySelector("#sendGuess").onclick = () => {
+                        if (document.querySelector("#guess").value === frameSet.word) {
+                            socket.emit('enterGuess', "");
+                        }
+                        else {
+                            socket.emit('enterGuess', document.querySelector("#guess").value); 
+                        }
+                        document.querySelector("#guess").style.display = "none";
+                        document.querySelector("#sendGuess").style.display ="none";
+                    };
+                    
+                    socket.on('displayGuess', (data) => {
+                        document.querySelector("#waitPage").style.display = "block";
+                        document.querySelector("#startGame").style.display = "none";
+                        document.querySelector("#status").innerHTML = "Now Choose among the following which one is right, If you fail you'll give points to the person who stumped you, otherwise you'll get points for you and the drawler";
+                        console.log(frameSet);
+                        if (frameSet.name === playerName) {
+                            document.querySelector("#waitPage").style.display = "none";
+                            document.querySelector("#status").innerHTML = "This is your gif, just sit back and relax";
+                        }
+                        else if (document.querySelector("#guess").value === frameSet.word) {
+                            sendScores(data[playerName], -1, frameSet);
+                        }
+                        else {
+                            console.log(data);
+                            const keys = Object.keys(data);
+                            switch (keys.length) {
+                                case 8:
+                                    if (data[keys[7]].name === playerName) {
+                                        document.querySelector("#player8").innerHTML = "";
+                                    }
+                                    else {
+                                        document.querySelector("#player8").innerHTML = data[keys[7]].guess;
+                                        document.querySelector("#player8").onclick = ()=> { sendScores(data, 7, frameSet);  };
+                                    }
+                                case 7:
+                                    if (data[keys[6]].name === playerName) {
+                                       document.querySelector("#player7").innerHTML = "";
+                                    }
+                                    else {
+                                         document.querySelector("#player7").innerHTML = data[keys[6]].guess;
+                                        document.querySelector("#player7").onclick = ()=> {sendScores(data, 6, frameSet); };
+                                    }
+                                case 6:
+                                    if (data[keys[5]].name === playerName) {
+                                        document.querySelector("#player6").innerHTML = "";
+                                    }
+                                    else {
+                                        document.querySelector("#player6").innerHTML = data[keys[5]].guess;
+                                        document.querySelector("#player6").onclick = ()=> {sendScores(data, 5, frameSet); };
+                                    }
+                                case 5:
+                                    if (data[keys[4]].name === playerName) {
+                                        document.querySelector("#player5").innerHTML = "";
+                                    }
+                                    else {
+                                        document.querySelector("#player5").innerHTML = data[keys[4]].guess;
+                                        document.querySelector("#player5").onclick = ()=> {sendScores(data, 4, frameSet);};
+                                    }
+                                case 4:
+                                    if (data[keys[3]].name === playerName) {
+                                        document.querySelector("#player4").innerHTML = "";
+                                    }
+                                    else {
+                                        document.querySelector("#player4").innerHTML = data[keys[3]].guess;
+                                        document.querySelector("#player4").onclick = ()=> {sendScores(data, 3, frameSet);};
+                                    }
+                                case 3:
+                                    if (data[keys[2]].name === playerName) {
+                                        document.querySelector("#player3").innerHTML = "";
+                                    } 
+                                    else {
+                                        document.querySelector("#player3").innerHTML = data[keys[2]].guess;
+                                        document.querySelector("#player3").onclick = ()=>{sendScores(data, 2, frameSet);};
+                                    }
+                                case 2:
+                                    if (data[keys[1]].name === playerName) {
+                                       document.querySelector("#player2").innerHTML = "";
+                                    }
+                                    else {
+                                         document.querySelector("#player2").innerHTML = data[keys[1]].guess;
+                                        document.querySelector("#player2").onclick = ()=> {sendScores(data, 1, frameSet);};
+                                    }
+                                case 1:
+                                    if (data[keys[0]].name === playerName) {
+                                       document.querySelector("#player1").innerHTML = "";
+                                    }
+                                    else {
+                                         document.querySelector("#player1").innerHTML = data[keys[0]].guess;
+                                        document.querySelector("#player1").onclick = ()=> {sendScores(data, 0, frameSet);};
+                                    }
+                                    break;
+                                default: 
+                                    document.querySelector("#player1").innerHTML = "Error no guesses returned";
+                            }
+                        }
+                        document.querySelector("#guess").value = "";
+                    });
+                }
                 
+            });
+            
+            socket.on('roomWait', (data) => {
+                const keys = Object.keys(data);
+                 switch (keys.length) {
+                     case 8: 
+                         document.querySelector("#player8").innerHTML = data[keys[7]].name;
+                     case 7:
+                         document.querySelector("#player7").innerHTML = data[keys[6]].name;
+                     case 6:
+                         document.querySelector("#player6").innerHTML = data[keys[5]].name;
+                     case 5:
+                         document.querySelector("#player5").innerHTML = data[keys[4]].name;
+                     case 4:
+                         document.querySelector("#player4").innerHTML = data[keys[3]].name;
+                     case 3:
+                         document.querySelector("#player3").innerHTML = data[keys[2]].name;
+                     case 2:
+                         document.querySelector("#player2").innerHTML = data[keys[1]].name;
+                     case 1:
+                         document.querySelector("#player1").innerHTML = data[keys[0]].name;
+                         break;
+                     default: 
+                         document.querySelector("#player1").innerHTML = "Error no players returned";
+                 }
+                if (keys.length > 3) {
+                    document.querySelector("#startGame").style.background = "rgba(155, 52, 78 , 1)"
+                    document.querySelector("#startGame").onclick = () => {
+                        socket.emit('gameReady');
+                    };
+                }
+            });
+            
+            socket.on('activateStart', (data) => {
+                document.querySelector("#mainPage").style.display = "block";
+                document.querySelector("#waitPage").style.display = "none";
+                let me = {};
+                const keys = Object.keys(data);
+                for (let i = 0; i < keys.length; i++) {
+                    if (data[keys[i]].name === playerName) {
+                        me = data[keys[i]];
+                        break;
+                    }
+                }
+                
+                document.querySelector("#user").innerHTML = me.name;
+                document.querySelector("#word").innerHTML = me.word;
+            });
+            
+            socket.on('updateUsername', (data) => {
+                 playerName = data; 
+            });
+            
+            socket.on('pointUpdate', (data) => {
+                const keys = Object.keys(data);
+                for (let i =0; i< keys.length; i++) {
+                    if (data[keys[i]].name === playerName) {
+                        document.querySelector("#points").innerHTML = data[keys[i]].points;
+                    }
+                }
+            });
+            socket.on('finalScreen', (data) => {
+                document.querySelector("#startGame").style.display = "none";
+                document.querySelector("#waitPage").style.display = "block";
+                const keys = Object.keys(data);
+                switch (keys.length) {
+                     case 4:
+                         document.querySelector("#player1").innerHTML = data[keys[0]].name + ": " + data[keys[0]].points;
+                         document.querySelector("#player2").innerHTML = data[keys[1]].name + ": " + data[keys[1]].points;
+                         document.querySelector("#player3").innerHTML = data[keys[2]].name + ": " + data[keys[2]].points;
+                         document.querySelector("#player4").innerHTML = data[keys[3]].name + ": " + data[keys[3]].points;
+                         document.querySelector("#player5").style.display = "none"
+                         document.querySelector("#player6").style.display = "none"
+                         document.querySelector("#player7").style.display = "none"
+                         document.querySelector("#player8").style.display = "none"
+                         break;
+                     case 5:
+                         document.querySelector("#player1").innerHTML = data[keys[0]].name + ": " + data[keys[0]].points;
+                         document.querySelector("#player2").innerHTML = data[keys[1]].name + ": " + data[keys[1]].points;
+                         document.querySelector("#player3").innerHTML = data[keys[2]].name + ": " + data[keys[2]].points;
+                         document.querySelector("#player4").innerHTML = data[keys[3]].name + ": " + data[keys[3]].points;
+                         document.querySelector("#player5").innerHTML = data[keys[4]].name + ": " + data[keys[4]].points;
+                         document.querySelector("#player6").style.display = "none"
+                         document.querySelector("#player7").style.display = "none"
+                         document.querySelector("#player8").style.display = "none"
+                         break;  
+                      case 6:
+                         document.querySelector("#player1").innerHTML = data[keys[0]].name + ": " + data[keys[0]].points;
+                         document.querySelector("#player2").innerHTML = data[keys[1]].name + ": " + data[keys[1]].points;
+                         document.querySelector("#player3").innerHTML = data[keys[2]].name + ": " + data[keys[2]].points;
+                         document.querySelector("#player4").innerHTML = data[keys[3]].name + ": " + data[keys[3]].points;
+                         document.querySelector("#player5").innerHTML = data[keys[4]].name + ": " + data[keys[4]].points;
+                         document.querySelector("#player6").innerHTML = data[keys[5]].name + ": " + data[keys[5]].points;
+                         document.querySelector("#player7").style.display = "none"
+                         document.querySelector("#player8").style.display = "none"
+                         break;  
+                     case 7:
+                         document.querySelector("#player1").innerHTML = data[keys[0]].name + ": " + data[keys[0]].points;
+                         document.querySelector("#player2").innerHTML = data[keys[1]].name + ": " + data[keys[1]].points;
+                         document.querySelector("#player3").innerHTML = data[keys[2]].name + ": " + data[keys[2]].points;
+                         document.querySelector("#player4").innerHTML = data[keys[3]].name + ": " + data[keys[3]].points;
+                         document.querySelector("#player5").innerHTML = data[keys[4]].name + ": " + data[keys[4]].points;
+                         document.querySelector("#player6").innerHTML = data[keys[5]].name + ": " + data[keys[5]].points;
+                         document.querySelector("#player7").innerHTML = data[keys[6]].name + ": " + data[keys[6]].points;
+                         document.querySelector("#player8").style.display = "none"
+                         break;  
+                     case 8: 
+                         document.querySelector("#player1").innerHTML = data[keys[0]].name + ": " + data[keys[0]].points;
+                         document.querySelector("#player2").innerHTML = data[keys[1]].name + ": " + data[keys[1]].points;
+                         document.querySelector("#player3").innerHTML = data[keys[2]].name + ": " + data[keys[2]].points;
+                         document.querySelector("#player4").innerHTML = data[keys[3]].name + ": " + data[keys[3]].points;
+                         document.querySelector("#player5").innerHTML = data[keys[4]].name + ": " + data[keys[4]].points;
+                         document.querySelector("#player6").innerHTML = data[keys[5]].name + ": " + data[keys[5]].points;
+                         document.querySelector("#player7").innerHTML = data[keys[6]].name + ": " + data[keys[6]].points;
+                         document.querySelector("#player8").innerHTML = data[keys[7]].name + ": " + data[keys[7]].points;
+                         break;  
+                     default: 
+                         document.querySelector("#player1").innerHTML = "Error no players returned";
+                 }
+                
+                const id = setInterval(10000, ()=> {
+                    socket.emit('endGame');
+                    socket.disconnect();
+                    clearInterval(id);
+                    document.querySelector("#mainPage").style.display = "none";
+                    document.querySelector("#waitPage").style.display = "none";
+                    document.querySelector("#roomPAge").style.display = "block";
+                });
             });
             
             document.querySelector("#clearButton").onclick = () => {
@@ -180,7 +460,6 @@
                     height: 480,
                     width: 640,
                     imgData : sendBufferCanvas.toDataURL(),
-                    room: roomSpace,
                 };
                 //Store it and increase the size
                 frames[i] = data;
@@ -190,13 +469,18 @@
                     //Clear the canvases
                     sendBufferCtx.clearRect(0, 0, canvas.width, canvas.height);
                     ctx.clearRect(0, 0, canvas.width, canvas.height);  
-                    //Send out the gif to be drawn
+                    //Send out the gif to be drawn                    
                     socket.emit('drawGif', frames);
                     //Reset frames and size
                     frames = {};
                     i = 0;
                     //Reset the screen count
                     document.querySelector("#frameCount").innerHTML = 1;
+                    document.querySelector("#frameTotal").style.display = "none";
+                    document.querySelector("#canvas").style.display = "none";
+                    document.querySelector("#send").style.display = "none";
+                    document.querySelector("#clearButton").style.display = "none";
+                    document.querySelector("#serverCanvas").style.display = "block";
                 }
                 else {
                     //Clear the canvases
@@ -224,25 +508,46 @@
             font-size: 32px;
             text-decoration: none;
             color: white;
+            }
+        #startGame {
+            background:  rgba(155, 52, 78 , 0.5);
         }
-        #mainPage {
-            display: none;
+        #serverCanvas, #mainPage, #waitPage, #guess, #sendGuess {
+            display: none;            
         }
     </style>
 </head>
 <body>
     <div id="mainPage">
+        <p id="status"></p>
+        <p>Your Name: <span id="user"> </span></p>
+        <p>Your Word: <span id="word"> </span></p>
+        <p>Points: <span id="points"></span></p>
         <canvas id="canvas" height="480" width="640"></canvas>
         <canvas id="serverCanvas" height="480" width= "640"></canvas>
         <input id="clearButton" type="button" value="Clear">
         <input id="send" type="button" value="next">
-        <p>Frame <span id="frameCount">0</span>/20</p>
+        <p id="frameTotal">Frame <span id="frameCount">1</span>/20</p>
+        <input id="guess" type="text">
+        <input id="sendGuess" type="button" value="Send Guess">
     </div>
     <div id="roomPage">
         <a id="Room1Button" href="#">Room 1 <span id="Room1">0</span>/8</a>
         <a id="Room2Button" href="#">Room 2 <span id="Room2">0</span>/8</a>
         <a id="Room3Button" href="#">Room 3 <span id="Room3">0</span>/8</a>
         <a id="Room4Button" href="#">Room 4 <span id="Room4">0</span>/8</a>
+        <input type="text" name="Username" id="username">
+    </div>
+    <div id="waitPage">
+        <p id="player1"></p>
+        <p id="player2"></p>
+        <p id="player3"></p>
+        <p id="player4"></p>
+        <p id="player5"></p>
+        <p id="player6"></p>
+        <p id="player7"></p>
+        <p id="player8"></p>
+        <a id="startGame" href="#">Start Game</a>
     </div>
 </body>
 </html>
