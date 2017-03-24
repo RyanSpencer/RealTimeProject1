@@ -10,8 +10,8 @@
             sendBufferCanvas, sendBufferCtx, //Canavs used to send information to the server
             serverCanvas, serverCtx; //Canvas used to draw information from the server
         let socket, dragging = false,  //Socket variable and dragging value for drawing
-            frames = {}, i = 1, animationId, roomSpace, playerName, points; // Frames object of all frames of animation, i is what instance of frames we are making next, 
-                                             // animation id is the value of setinterval so we can cancel it later
+            frames = {}, i = 1, animationId,  // Frames object of all frames of animation, i is what instance of frames we are making next,animation id is the value of setinterval so we can cancel it later
+              roomSpace, playerName, points;  //roomSpace is what room this client is in, playername and points the local values of the users username and point total                   
 
         // Taken from stackoverflow
         // http://stackoverflow.com/questions/1484506/random-color-generator-in-javascript
@@ -42,6 +42,7 @@
                 name: document.querySelector("#username").value,
             }
             socket.emit('join', data);
+            //Show the waiting room and hide the room join page
             document.querySelector("#waitPage").style.display = "block";
             document.querySelector("#roomPage").style.display = "none";
             roomSpace = room;
@@ -71,6 +72,8 @@
             
             resetCanvas(sendBufferCtx);
             sendBufferCtx.strokeStyle = "rgba(128, 128, 128, 0.25)";
+            
+            //Add handlers for click events to join each roomm
             
             const room1Handler = (e) => joinRoom(e, "room1");
             const room2Handler = (e) => joinRoom(e, "room2");
@@ -131,9 +134,13 @@
             image.src = data.imgData;
         };
         
+        //Sends score total back to the server based on various points
         const sendScores = (data, i, guessInfo) => {
+            //Hide the options after they chose it
             document.querySelector("#waitPage").style.display = "none";
+            //Remove the socket.on for this since otherwise when a player has their gif up they can still chose an option
             socket.off("displayGuess");
+            //i is hardcoded to negativve 1 if they guess  the answer right
             if (i < 0) {
                 const pointData = {
                     name: playerName, points: 100, drawler: guessInfo.name,
@@ -141,6 +148,7 @@
                 socket.emit('doneGuessing', pointData);
                 return;
             }
+            //Otherwise check if they got the word right
             const keys = Object.keys(data);
             if (data[keys[i]].guess === guessInfo.word) {
                 const pointData = {
@@ -149,6 +157,7 @@
                 
                 socket.emit('doneGuessing', pointData);
             }
+            //Otherwise they got it wrong
             else {
                 const pointData = {
                     name: playerName, points: 40, drawler: data[keys[i]].name,
@@ -161,6 +170,7 @@
             socket = io.connect();
             
             socket.on('connect', () => {
+                //When the player connects they get the total of all the players in each room, with each  button neated if the gamme has started
                 socket.on('players', (data) => {
                     document.querySelector("#Room1").innerHTML = data.one; 
                     document.querySelector("#Room2").innerHTML = data.two; 
@@ -207,16 +217,22 @@
                 
                 //display a frame once every 100ms, resulting in a 2 second animation at 10 fps, decent for viewing simple gifs.
                 animationId = setInterval(displayLoop, 100);
+                
+                //If its this players turn they just chill and send in the correct answer.
                 if (frameSet.name === playerName) {
                     document.querySelector("#status").innerHTML = "This is your gif, just sit back and relax";
                     socket.emit('enterGuess', frameSet.word);
                 }
                 else {
+                    //OH boy here we go
                     console.log(frameSet);
+                    
+                    //show the guess and guess send button, along with status to explain
                     document.querySelector("#guess").style.display = "block";
                     document.querySelector("#sendGuess").style.display ="block";
                     document.querySelector("#status").innerHTML = "Give your best guess as to what this is below";
                     
+                    //On click if the guess is correct have the user send nothing insstead, otherwise send the answer and hide the information to provide visual feedback
                     document.querySelector("#sendGuess").onclick = () => {
                         if (document.querySelector("#guess").value === frameSet.word) {
                             socket.emit('enterGuess', "");
@@ -228,19 +244,21 @@
                         document.querySelector("#sendGuess").style.display ="none";
                     };
                     
+                    //When they are ready to display the other guesses 
                     socket.on('displayGuess', (data) => {
+                        //Show the wait page repurposed for this use and hide other stuff
                         document.querySelector("#waitPage").style.display = "block";
                         document.querySelector("#startGame").style.display = "none";
                         document.querySelector("#status").innerHTML = "Now Choose among the following which one is right, If you fail you'll give points to the person who stumped you, otherwise you'll get points for you and the drawler";
                         console.log(frameSet);
-                        if (frameSet.name === playerName) {
-                            document.querySelector("#waitPage").style.display = "none";
-                            document.querySelector("#status").innerHTML = "This is your gif, just sit back and relax";
-                        }
-                        else if (document.querySelector("#guess").value === frameSet.word) {
+                        //If the player guesses correcctly the answer short cut them to the score sending
+                        if (document.querySelector("#guess").value === frameSet.word) {
                             sendScores(data[playerName], -1, frameSet);
                         }
                         else {
+                            //this is a fall through siwthc statement. Basically it switches by the length of the guesses but backwards, then goes down. If the
+                            // player has 6 guesses to chose, they first ignore one with thier name, and then put in any others and add onclick events. with no breaks they
+                            // will continue to go down untill hitting one.
                             console.log(data);
                             const keys = Object.keys(data);
                             switch (keys.length) {
@@ -320,6 +338,7 @@
             });
             
             socket.on('roomWait', (data) => {
+                //Fill in the room names based on how many players are there by another fall through switch statement, starts with the highest numbered player and works down
                 const keys = Object.keys(data);
                  switch (keys.length) {
                      case 8: 
@@ -343,6 +362,7 @@
                          document.querySelector("#player1").innerHTML = "Error no players returned";
                  }
                 if (keys.length > 3) {
+                    //When there are 4 players make the game avaliable to start
                     document.querySelector("#startGame").style.background = "rgba(155, 52, 78 , 1)"
                     document.querySelector("#startGame").onclick = () => {
                         socket.emit('gameReady');
@@ -351,8 +371,11 @@
             });
             
             socket.on('activateStart', (data) => {
+                //once ready to start hide the waiting screen and show the mmain game screen
                 document.querySelector("#mainPage").style.display = "block";
                 document.querySelector("#waitPage").style.display = "none";
+                
+                //Grab an object to represent your name and word you were givven then dispaly them above
                 let me = {};
                 const keys = Object.keys(data);
                 for (let i = 0; i < keys.length; i++) {
@@ -366,10 +389,12 @@
                 document.querySelector("#word").innerHTML = me.word;
             });
             
+            //Updates username after being verified by server
             socket.on('updateUsername', (data) => {
                  playerName = data; 
             });
             
+            //Updates the point value for each player client side
             socket.on('pointUpdate', (data) => {
                 const keys = Object.keys(data);
                 for (let i =0; i< keys.length; i++) {
@@ -378,7 +403,9 @@
                     }
                 }
             });
+            
             socket.on('finalScreen', (data) => {
+                //Hide the mmain page and show the wait page repurposed for final score, it's so large so this way it shows only the number of players that are in the game
                 document.querySelector("#mainPage").style.display = "none";
                 document.querySelector("#waitPage").style.display = "block";
                 const keys = Object.keys(data);
@@ -437,6 +464,7 @@
                          document.querySelector("#player1").innerHTML = "Error no players returned";
                  }
                 
+                //Also remove the prevvious onclick events
                 document.querySelector("#player1").onclick = "";
                 document.querySelector("#player2").onclick = "";
                 document.querySelector("#player3").onclick = "";
@@ -446,13 +474,18 @@
                 document.querySelector("#player7").onclick = "";
                 document.querySelector("#player8").onclick = "";
                 
+                //Happens after 10 seconds
                 const id = setInterval(()=> {
+                    //Emit out to end the game and disconnect
                     socket.emit('endGame');
                     socket.disconnect();
+                    //Clear the id and reset the screen
                     clearInterval(id);
                     document.querySelector("#waitPage").style.display = "none";
                     document.querySelector("#roomPage").style.display = "block";
+                    //Needed to reload the page to reconnect properly
                     window.location.reload();
+                    //Also reset the data 
                     document.querySelector("#player1").innerHTML = "";
                     document.querySelector("#player2").innerHTML = "";
                     document.querySelector("#player3").innerHTML = "";
@@ -468,6 +501,7 @@
             document.querySelector("#clearButton").onclick = () => {
                     //Clears the screen for the player to start over if they messed up
                     ctx.clearRect(0, 0, canvas.width, canvas.height);  
+                    sendBufferCtx.clearRecct(0, 0, canvas.width, canvas.height);
             };
             
             document.querySelector("#send").onclick = () => {
