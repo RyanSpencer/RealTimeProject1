@@ -448,7 +448,7 @@
                 
                 const id = setInterval(()=> {
                     socket.emit('endGame');
-                    socket.disconnect():
+                    socket.disconnect();
                     clearInterval(id);
                     document.querySelector("#waitPage").style.display = "none";
                     document.querySelector("#roomPage").style.display = "block";
