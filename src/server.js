@@ -102,8 +102,8 @@ const onJoin = (sock) => {
 const checkRooms = (sock, key) => {
   const socket = sock;
 
-// First it figures out which room the socket is in, then it figures out
-// whether the number of actions are eqaul to or grater than the number of players in the room
+  // First it figures out which room the socket is in, then it figures out
+  // whether the number of actions are eqaul to or grater than the number of players in the room
   if (socket.room === 'room1') {
     if (key >= players.one) {
       return true;
@@ -139,7 +139,7 @@ const onUpdate = (sock) => {
     // If everyone has submimtted a response
     if (checkRooms(socket, keys.length)) {
       // pass in all the data and delete the first index,
-     // this way when we pass it again on the 3 left will be there
+      // this way when we pass it again on the 3 left will be there
       io.sockets.in(socket.room).emit('displayGif', readyUsers[socket.room]);
       delete readyUsers[socket.room][keys[0]];
     }
@@ -187,7 +187,7 @@ const onUpdate = (sock) => {
     // If all but one guess has been done (which means we've finished since one
     // player is sitting out per roudn, we ready to move on)
     if (checkRooms(socket, doneGuesses + 1)) {
-     // update the players on their point totals
+      // update the players on their point totals
       io.sockets.in(socket.room).emit('pointUpdate', users[socket.room]);
 
       // If there are still readyUsers left, so gifs that still need to be shown, pass that back
@@ -208,7 +208,7 @@ const onUpdate = (sock) => {
 const onDisconnect = (sock) => {
   const socket = sock;
 
- // Remove the started flags from the room
+  // Remove the started flags from the room
   socket.on('endGame', () => {
     if (socket.room === 'room1') players.oneStarted = false;
     else if (socket.room === 'room2') players.twoStarted = false;
@@ -217,7 +217,7 @@ const onDisconnect = (sock) => {
   });
 
   // Full discconnect, leave the room, print out to console.
-// delete from the array if possible and subtract from room totals
+  // delete from the array if possible and subtract from room totals
   socket.on('disconnect', () => {
     console.log('left');
     socket.leave(socket.room);
